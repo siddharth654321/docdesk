@@ -106,6 +106,29 @@ curl -X POST http://127.0.0.1:8000/tickets \
 }
 ```
 
+Sending the server-owned fields anyway changes nothing. Here the client also sends
+`id`, `status` and `created_at`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/tickets \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Cannot start the server", "body": "uvicorn exits immediately on startup", "fastapi_version": "0.115.0", "id": 999, "status": "closed", "created_at": "2000-01-01T00:00:00Z"}'
+```
+
+`201 Created`: `id` is `1` (not 999), `status` is `open` (not `closed`) and
+`created_at` is the server's clock (not the year 2000).
+
+```json
+{
+  "id": 1,
+  "title": "Cannot start the server",
+  "body": "uvicorn exits immediately on startup",
+  "status": "open",
+  "fastapi_version": "0.115.0",
+  "created_at": "2026-11-16T14:54:17.348657Z"
+}
+```
+
 Failure: a title shorter than 5 characters gives `422`.
 
 ```bash

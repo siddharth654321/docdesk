@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -50,16 +52,23 @@ def test_create_returns_201_with_server_fields(client):
     assert data["title"] == VALID["title"]
 
 
-def test_client_cannot_set_id_status_or_created_at(client):
+@pytest.mark.parametrize("fake_created_at", ["2000-01-01T00:00:00Z", "2099-12-31T23:59:59Z"])
+def test_client_cannot_set_id_status_or_created_at(client, fake_created_at):
+    before = datetime.now(timezone.utc)
     r = client.post(
         "/tickets",
-        json={**VALID, "id": 999, "status": "closed", "created_at": "2000-01-01T00:00:00Z"},
+        json={**VALID, "id": 999, "status": "closed", "created_at": fake_created_at},
     )
+    after = datetime.now(timezone.utc)
+
     assert r.status_code == 201
     data = r.json()
-    assert data["id"] == 1
-    assert data["status"] == "open"
-    assert not data["created_at"].startswith("2000")
+    assert data["id"] == 1  # not 999
+    assert data["status"] == "open"  # not "closed"
+    # created_at is the server's clock at request time, not the client's value
+    assert before <= datetime.fromisoformat(data["created_at"]) <= after
+    # and the stored ticket agrees with what was returned
+    assert client.get("/tickets/1").json() == data
 
 
 @pytest.mark.parametrize(
